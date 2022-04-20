@@ -1,4 +1,4 @@
-from flask import Flask,render_template,request,session,redirect,url_for,flash
+from flask import Flask, render_template,request,session,redirect,url_for,flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash,check_password_hash
@@ -11,7 +11,6 @@ local_server= True
 app = Flask(__name__)
 
 
-
 # this is for getting unique user access
 login_manager=LoginManager(app)
 login_manager.login_view='login'
@@ -21,7 +20,7 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 # app.config['SQLALCHEMY_DATABASE_URL']='mysql://username:password@localhost/databas_table_name'
-app.config['SQLALCHEMY_DATABASE_URI']='mysql://root:@localhost/farmers'
+app.config['SQLALCHEMY_DATABASE_URI']='mysql://root:@localhost/farmerdbms'
 db=SQLAlchemy(app)
 
 # here we will create db models that is tables
@@ -29,6 +28,26 @@ class Test(db.Model):
     id=db.Column(db.Integer,primary_key=True)
     name=db.Column(db.String(100))
 
+class Farming(db.Model):
+    fid=db.Column(db.Integer,primary_key=True)
+    farmingtype=db.Column(db.String(100))
+
+
+class Addagroproducts(db.Model):
+    username=db.Column(db.String(50))
+    email=db.Column(db.String(50))
+    pid=db.Column(db.Integer,primary_key=True)
+    productname=db.Column(db.String(100))
+    productdesc=db.Column(db.String(300))
+    price=db.Column(db.Integer)
+
+
+
+class Trig(db.Model):
+    id=db.Column(db.Integer,primary_key=True)
+    fid=db.Column(db.String(100))
+    action=db.Column(db.String(100))
+    timestamp=db.Column(db.String(100))
 
 
 class User(UserMixin,db.Model):
@@ -58,6 +77,79 @@ def index():
 def farmerdetails():
     query=db.engine.execute(f"SELECT * FROM `register`") 
     return render_template('farmerdetails.html',query=query)
+
+@app.route('/agroproducts')
+def agroproducts():
+    query=db.engine.execute(f"SELECT * FROM `addagroproducts`") 
+    return render_template('agroproducts.html',query=query)
+
+@app.route('/addagroproduct',methods=['POST','GET'])
+@login_required
+def addagroproduct():
+    if request.method=="POST":
+        username=request.form.get('username')
+        email=request.form.get('email')
+        productname=request.form.get('productname')
+        productdesc=request.form.get('productdesc')
+        price=request.form.get('price')
+        products=Addagroproducts(username=username,email=email,productname=productname,productdesc=productdesc,price=price)
+        db.session.add(products)
+        db.session.commit()
+        flash("Product Added","info")
+        return redirect('/agroproducts')
+   
+    return render_template('addagroproducts.html')
+
+@app.route('/triggers')
+@login_required
+def triggers():
+    query=db.engine.execute(f"SELECT * FROM `trig`") 
+    return render_template('triggers.html',query=query)
+
+@app.route('/addfarming',methods=['POST','GET'])
+@login_required
+def addfarming():
+    if request.method=="POST":
+        farmingtype=request.form.get('farming')
+        query=Farming.query.filter_by(farmingtype=farmingtype).first()
+        if query:
+            flash("Farming Type Already Exist","warning")
+            return redirect('/addfarming')
+        dep=Farming(farmingtype=farmingtype)
+        db.session.add(dep)
+        db.session.commit()
+        flash("Farming Addes","success")
+    return render_template('farming.html')
+
+
+
+
+@app.route("/delete/<string:rid>",methods=['POST','GET'])
+@login_required
+def delete(rid):
+    db.engine.execute(f"DELETE FROM `register` WHERE `register`.`rid`={rid}")
+    flash("Slot Deleted Successful","danger")
+    return redirect('/farmerdetails')
+
+
+@app.route("/edit/<string:rid>",methods=['POST','GET'])
+@login_required
+def edit(rid):
+    farming=db.engine.execute("SELECT * FROM `farming`")
+    posts=Register.query.filter_by(rid=rid).first()
+    if request.method=="POST":
+        farmername=request.form.get('farmername')
+        adharnumber=request.form.get('adharnumber')
+        age=request.form.get('age')
+        gender=request.form.get('gender')
+        phonenumber=request.form.get('phonenumber')
+        address=request.form.get('address')
+        farmingtype=request.form.get('farmingtype')     
+        query=db.engine.execute(f"UPDATE `register` SET `farmername`='{farmername}',`adharnumber`='{adharnumber}',`age`='{age}',`gender`='{gender}',`phonenumber`='{phonenumber}',`address`='{address}',`farming`='{farmingtype}'")
+        flash("Slot is Updates","success")
+        return redirect('/farmerdetails')
+    
+    return render_template('edit.html',posts=posts,farming=farming)
 
 
 @app.route('/signup',methods=['POST','GET'])
